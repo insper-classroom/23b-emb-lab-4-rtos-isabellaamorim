@@ -162,9 +162,6 @@ static void task_adc(void *pvParameters) {
 	vTimerCallback);
 	xTimerStart(xTimer, 0);
 
-	// variável para recever dados da fila
-	adcData adc;
-
 	int media;
 	
 	while (1) {

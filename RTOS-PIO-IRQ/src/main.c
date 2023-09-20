@@ -15,6 +15,21 @@
 #define LED_PIO_IDX 8
 #define LED_IDX_MASK (1 << LED_PIO_IDX)
 
+#define BUT_1_PIO				PIOD
+#define BUT_1_PIO_ID			ID_PIOD
+#define BUT_1_PIO_IDX			28
+#define BUT_1_PIO_IDX_MASK		(1u << BUT_1_PIO_IDX)
+
+#define BUT_2_PIO PIOC
+#define BUT_2_PIO_ID ID_PIOC
+#define BUT_2_PIO_IDX 31
+#define BUT_2_PIO_IDX_MASK (1u << BUT_2_PIO_IDX)
+
+#define BUT_3_PIO PIOA
+#define BUT_3_PIO_ID ID_PIOA
+#define BUT_3_PIO_IDX 19
+#define BUT_3_PIO_IDX_MASK (1u << BUT_3_PIO_IDX)
+
 #define USART_COM_ID ID_USART1
 #define USART_COM USART1
 
@@ -41,6 +56,12 @@ extern void xPortSysTickHandler(void);
 /** Semaforo a ser usado pela task led */
 SemaphoreHandle_t xSemaphoreBut;
 
+SemaphoreHandle_t xSemaphoreButOLED1;
+
+SemaphoreHandle_t xSemaphoreButOLED2;
+
+SemaphoreHandle_t xSemaphoreButOLED3;
+
 /** Queue for msg log send data */
 QueueHandle_t xQueueLedFreq;
 
@@ -49,6 +70,9 @@ QueueHandle_t xQueueLedFreq;
 /************************************************************************/
 
 void but_callback(void);
+void but_callback1(void);
+void but_callback2(void);
+void but_callback3(void);
 static void BUT_init(void);
 void pin_toggle(Pio *pio, uint32_t mask);
 static void USART1_init(void);
@@ -99,6 +123,21 @@ extern void vApplicationMallocFailedHook(void) {
 void but_callback(void) {
   BaseType_t xHigherPriorityTaskWoken = pdFALSE;
   xSemaphoreGiveFromISR(xSemaphoreBut, &xHigherPriorityTaskWoken);
+}
+
+void but_callback1(void) {
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+	xSemaphoreGiveFromISR(xSemaphoreButOLED1, &xHigherPriorityTaskWoken);
+}
+
+void but_callback2(void) {
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+	xSemaphoreGiveFromISR(xSemaphoreButOLED2, &xHigherPriorityTaskWoken);
+}
+
+void but_callback3(void) {
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+	xSemaphoreGiveFromISR(xSemaphoreButOLED3, &xHigherPriorityTaskWoken);
 }
 
 /************************************************************************/
@@ -155,6 +194,51 @@ static void task_but(void *pvParameters) {
         delayTicks = 900;
       }
     }
+	
+	if (xSemaphoreTake(xSemaphoreButOLED1, 1000)) {
+		/* atualiza frequencia */
+		delayTicks -= 10;
+
+		/* envia nova frequencia para a task_led */
+		xQueueSend(xQueueLedFreq, (void *)&delayTicks, 10);
+		
+		printf("task_but: %d \n", delayTicks);
+
+		/* garante range da freq. */
+		if (delayTicks == 100) {
+			delayTicks = 900;
+		}
+	}
+	
+	if (xSemaphoreTake(xSemaphoreButOLED2, 1000)) {
+		/* atualiza frequencia */
+		delayTicks -= 5;
+
+		/* envia nova frequencia para a task_led */
+		xQueueSend(xQueueLedFreq, (void *)&delayTicks, 10);
+		
+		printf("task_but: %d \n", delayTicks);
+
+		/* garante range da freq. */
+		if (delayTicks == 100) {
+			delayTicks = 900;
+		}
+	}
+	
+	if (xSemaphoreTake(xSemaphoreButOLED3, 1000)) {
+		/* atualiza frequencia */
+		delayTicks -= 1;
+
+		/* envia nova frequencia para a task_led */
+		xQueueSend(xQueueLedFreq, (void *)&delayTicks, 10);
+		
+		printf("task_but: %d \n", delayTicks);
+
+		/* garante range da freq. */
+		if (delayTicks == 100) {
+			delayTicks = 900;
+		}
+	}
   }
 }
 
@@ -215,6 +299,52 @@ static void BUT_init(void) {
   // com prioridade 4 (quanto mais próximo de 0 maior)
   NVIC_EnableIRQ(BUT_PIO_ID);
   NVIC_SetPriority(BUT_PIO_ID, 4); // Prioridade 4
+  
+  //Botão OLED 1
+  pio_configure(BUT_1_PIO, PIO_INPUT, BUT_1_PIO_IDX_MASK, PIO_PULLUP);
+  
+  pio_handler_set(BUT_1_PIO,
+  BUT_1_PIO_ID,
+  BUT_1_PIO_IDX_MASK,
+  PIO_IT_FALL_EDGE,
+  but_callback1);
+  
+  pio_enable_interrupt(BUT_1_PIO, BUT_1_PIO_IDX_MASK);
+  pio_get_interrupt_status(BUT_1_PIO);
+
+  NVIC_EnableIRQ(BUT_1_PIO_ID);
+  NVIC_SetPriority(BUT_1_PIO_ID, 4); // Prioridade 4
+  
+  //Botão OLED 2
+  pio_configure(BUT_2_PIO, PIO_INPUT, BUT_2_PIO_IDX_MASK, PIO_PULLUP);
+  
+  pio_handler_set(BUT_2_PIO,
+  BUT_2_PIO_ID,
+  BUT_2_PIO_IDX_MASK,
+  PIO_IT_FALL_EDGE,
+  but_callback2);
+  
+  pio_enable_interrupt(BUT_2_PIO, BUT_2_PIO_IDX_MASK);
+  pio_get_interrupt_status(BUT_2_PIO);
+
+  NVIC_EnableIRQ(BUT_2_PIO_ID);
+  NVIC_SetPriority(BUT_2_PIO_ID, 4); // Prioridade 4
+  
+  //Botão OLED 3
+  pio_configure(BUT_3_PIO, PIO_INPUT, BUT_3_PIO_IDX_MASK, PIO_PULLUP);
+  
+  pio_handler_set(BUT_3_PIO,
+  BUT_3_PIO_ID,
+  BUT_3_PIO_IDX_MASK,
+  PIO_IT_FALL_EDGE,
+  but_callback3);
+  
+  pio_enable_interrupt(BUT_3_PIO, BUT_3_PIO_IDX_MASK);
+  pio_get_interrupt_status(BUT_3_PIO);
+
+  NVIC_EnableIRQ(BUT_3_PIO_ID);
+  NVIC_SetPriority(BUT_3_PIO_ID, 4); // Prioridade 4
+  
 }
 
 /************************************************************************/
@@ -236,8 +366,21 @@ int main(void) {
 
   /* Attempt to create a semaphore. */
   xSemaphoreBut = xSemaphoreCreateBinary();
+  xSemaphoreButOLED1 = xSemaphoreCreateBinary();
+  xSemaphoreButOLED2 = xSemaphoreCreateBinary();
+  xSemaphoreButOLED3 = xSemaphoreCreateBinary();
+  
   if (xSemaphoreBut == NULL)
     printf("falha em criar o semaforo \n");
+	
+  if (xSemaphoreButOLED1 == NULL)
+	printf("falha em criar o semaforo \n");
+	
+  if (xSemaphoreButOLED2 == NULL)
+	printf("falha em criar o semaforo \n");
+	
+  if (xSemaphoreButOLED3 == NULL)
+	printf("falha em criar o semaforo \n");
 
   /* cria queue com 32 "espacos" */
   /* cada espaço possui o tamanho de um inteiro*/
